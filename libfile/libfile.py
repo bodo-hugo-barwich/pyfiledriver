@@ -1,9 +1,10 @@
 '''
-@version: 2018-10-22
+@version: 2018-10-27
 
-@author: bodo
+@author: Bodo Hugo Barwich
 '''
-from fileinput import filename
+
+
 
 class FileDriver(object):
   '''
@@ -19,6 +20,14 @@ class FileDriver(object):
     self._file_directory = ''
     self._file_name = ''
   
+    if filepath is not None :
+      self.setFilePath(filepath)
+    else :
+      if filedirectory is not None :
+        self.setFileDirectory(filedirectory)
+        
+      if filename is not None :
+        self.setFileName(filename)
   
    
   '''
