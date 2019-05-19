@@ -1,8 +1,14 @@
 '''
-@version: 2018-10-27
+This Module provides the `FileDriver` Class which handles the Access to a Single
+File implementing several functionalities in Python only Code and captures possible
+Errors.
 
-@author: Bodo Hugo Barwich
+:version: 2018-10-27
+
+:author: Bodo Hugo Barwich
 '''
+from __builtin__ import int
+import os
 
 
 
@@ -14,11 +20,21 @@ class FileDriver(object):
 
   def __init__(self, filepath = None, filedirectory = None, filename = None):
     '''
-    Constructor
+    A `FileDriver` Object can be instanciate with a complete `filepath` or with
+    `filedirectory` and / or `filename`
     '''
-    self._file_path = ''
-    self._file_directory = ''
-    self._file_name = ''
+    self._arr_file_path = ['', '']
+    self._file_path = None
+    
+    self._file = None
+    self._arr_content = []
+    self._arr_content_lines = []
+    self._content = ''
+    self._package_size = 32768
+    self._cursor = -1
+    self._persistent = False
+    self._cached = False
+    
   
     if filepath is not None :
       self.setFilePath(filepath)
@@ -30,23 +46,29 @@ class FileDriver(object):
         self.setFileName(filename)
   
    
-  '''
-  -----------------------------------------------------------------------------------------
-  Administration Methods
-  '''
   
+  #-----------------------------------------------------------------------------------------
+  #Administration Methods
+    
       
   def setFileDirectory(self, filedirectory):
-    if filedirectory is not None :
-      self._file_directory = filedirectory
-      
-    if not self._file_directory.endswith('/', -1) :
-      self._file_directory += '/'
+    if filedirectory is None :
+      filedirectory = ''
+    
+    if filedirectory != '' :
+      if not filedirectory.endswith('/', -1) :
+        filedirectory += '/'
+    
+    self._file_path = None
+    self._arr_file_path[0] = filedirectory
       
   
   def setFileName(self, filename):
-    if filename is not None :
-      self._file_name = filename
+    if filename is None :
+      filename = ''
+      
+    self._file_path = None
+    self._arr_file_path[1] = self._file_name
       
     
   def setFilePath(self, filepath):
@@ -77,5 +99,66 @@ class FileDriver(object):
     self.setFileName(filename)
     
     
+  def setPersistent(self, persistent = True):    
+    if isinstance(persistent, int) :
+      if persistent > 0 :
+        persistent = True
+      else :
+        persistent = False
+      
+    if isinstance(persistent, bool) :
+      self._persistent = persistent
+      
+      
+  def setCached(self, cached = True):
+    if isinstance(cached, int) :
+      if cached > 0 :
+        cached = True
+      else :
+        cached = False
+        
+    if isinstance(cached, bool) :
+      self._cached = cached
+      
+      
+  def _ropen(self):
     
+    pass
+  
+  
+  
+  #-----------------------------------------------------------------------------------------
+  #Consultation Methods
+  
+  
+  def getFileDirectory(self):
+    return self._arr_file_path[0]
+  
+  
+  def getFileName(self):
+    return self._arr_file_path[1]
     
+  
+  def getFilePath(self):    
+    if self._file_path is None :
+      self._file_path = ''.join(self._arr_file_path)
+    
+    return self._file_path
+  
+  
+  def Exists(self):
+    brs = os.path.exists(self.getFilePath())
+    
+    if brs :
+      brs = os.path.isfile(self.getFilePath())
+        
+    return brs
+  
+  
+  def _isOpen(self):
+    brs = False
+    
+    if self._file is not None :
+      brs = True
+      
+    return brs
