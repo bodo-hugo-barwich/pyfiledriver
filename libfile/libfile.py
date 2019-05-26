@@ -35,6 +35,13 @@ class FileDriver(object):
     self._persistent = False
     self._cached = False
     
+    self._readable = False
+    self._writeable = False
+    self._appendable = False
+    
+    self._arr_err = []
+    self._err_code = 0
+    
   
     if filepath is not None :
       self.setFilePath(filepath)
@@ -44,6 +51,18 @@ class FileDriver(object):
         
       if filename is not None :
         self.setFileName(filename)
+      
+  
+  def __del__(self):
+    '''
+    On Destruction the File will be closed
+    and the Lists of str Objects will be freed
+    '''
+    if self._isOpen() :
+      self._Close()
+    
+    self._arr_content = None
+    self._arr_content_lines = None
   
    
   
@@ -121,9 +140,67 @@ class FileDriver(object):
       self._cached = cached
       
       
-  def _ropen(self):
+  def _rOpen(self, reopen = False):
+    brs = False
     
-    pass
+    if not self._isOpen() or reopen :
+      if self.Exists() :
+        try :
+          self._file = open(self.getFilePath(), 'rt', self._package_size)
+        except Exception as e :
+          self._file = None
+          
+          self._arr_err.append("File '{}': Open Read failed!".format(self.getFilePath()))
+          self._arr_err.append("Message: {}".format(str(e)))
+          self._err_code = 1
+    else :
+      brs = True
+    
+    return brs
+  
+  def Read(self):
+    brs = False
+    
+    if not self._isReadable() :
+      self._rOpen()
+      
+    if self._isOpen() :
+      spk = None
+      brd = True
+    
+      try :
+        while brd :
+          spk = self._file.read(self._package_size)
+          
+          if spk != '' :
+            self._arr_content.append(spk)
+          else :
+            brd = False
+            
+        brs = True
+        
+      except Exception as e :
+        self._arr_err.append("File '{}': Read failed!".format(self.getFilePath()))
+        self._arr_err.append("Message: {}".format(str(e)))
+        self._err_code = 1
+        
+        self._Close()
+        
+      if not self._persistent :
+        #Close the File in non persistent Mode
+        self._Close()
+        
+    return brs
+  
+  
+  def _Close(self):
+    if self._isOpen() :
+      self._file.close()
+      self._file = None
+      
+    self._readable = False
+    self._writeable = False
+    self._appendable = False
   
   
   
@@ -159,6 +236,38 @@ class FileDriver(object):
     brs = False
     
     if self._file is not None :
+      try :
+        if self.file.fileno() != 0 :         
+          brs = True
+        else :
+          #It is not a valid File Object
+          self._file = None      
+          self._readable = False
+          self._writeable = False
+          self._appendable = False          
+      except :
+        #It is not a valid File Object
+        self._file = None      
+        self._readable = False
+        self._writeable = False
+        self._appendable = False
+            
+    return brs
+  
+  
+  def _isReadable(self):
+    brs = False
+    
+    if self._isOpen() and self._readable :
+      brs = True
+      
+    return brs
+  
+  
+  def _isWriteable(self):
+    brs = False
+    
+    if self._isOpen() and self._writeable :
       brs = True
       
     return brs
