@@ -25,34 +25,34 @@ class FileDriver(object):
     '''
     self._arr_file_path = ['', '']
     self._file_path = None
-    
+
     self._file = None
     self._arr_content = []
     self._arr_content_lines = []
-    self._content = ''
+    self._scontent = ''
     self._package_size = 32768
-    self._cursor = -1
+    self._icursor = -1
     self._persistent = False
     self._cached = False
-    
-    self._readable = False
-    self._writeable = False
-    self._appendable = False
-    
+
+    self._breadable = False
+    self._bwriteable = False
+    self._bappendable = False
+
     self._arr_err = []
     self._err_code = 0
-    
-  
+
+
     if filepath is not None :
       self.setFilePath(filepath)
     else :
       if filedirectory is not None :
         self.setFileDirectory(filedirectory)
-        
+
       if filename is not None :
         self.setFileName(filename)
-      
-  
+
+
   def __del__(self):
     '''
     On Destruction the File will be closed
@@ -60,214 +60,292 @@ class FileDriver(object):
     '''
     if self._isOpen() :
       self._Close()
-    
+
     self._arr_content = None
     self._arr_content_lines = None
-  
-   
-  
+
+
+
   #-----------------------------------------------------------------------------------------
   #Administration Methods
-    
-      
+
+
   def setFileDirectory(self, filedirectory):
+    self._file_path = None
+    self._arr_file_path[0] = ''
+
     if filedirectory is None :
       filedirectory = ''
-    
+
     if filedirectory != '' :
       if not filedirectory.endswith('/', -1) :
-        filedirectory += '/'
-    
-    self._file_path = None
-    self._arr_file_path[0] = filedirectory
-      
-  
+        self._arr_file_path[0] = filedirectory + '/'
+      else :
+        self._arr_file_path[0] = filedirectory
+
+
   def setFileName(self, filename):
     if filename is None :
       filename = ''
-      
+
     self._file_path = None
-    self._arr_file_path[1] = self._file_name
-      
-    
+    self._arr_file_path[1] = filename
+
+
   def setFilePath(self, filepath):
     filedirectory = None
     filename = None
     slashpos = -1
-    
+
     if filepath is None :
       filepath = ''
-    
+
     self._file_path = filepath
-    
+
     if filepath != '' :
       slashpos = filepath.rfind('/', 0)
-      
+
       if slashpos != -1 :
         filedirectory = filepath[0 : slashpos]
         filename = filepath[slashpos + 1 : filepath.length - 1]
       else :
         filedirectory = ''
         filename = filepath
-        
+
     else :
       filedirectory = ''
       filename = ''
-      
+
     self.setFileDirectory(filedirectory)
     self.setFileName(filename)
-    
-    
-  def setPersistent(self, persistent = True):    
+
+
+  def setPersistent(self, persistent = True):
     if isinstance(persistent, int) :
       if persistent > 0 :
         persistent = True
       else :
         persistent = False
-      
+
     if isinstance(persistent, bool) :
       self._persistent = persistent
-      
-      
+
+
   def setCached(self, cached = True):
     if isinstance(cached, int) :
       if cached > 0 :
         cached = True
       else :
         cached = False
-        
+
     if isinstance(cached, bool) :
       self._cached = cached
-      
-      
+
+
   def _rOpen(self, reopen = False):
     brs = False
-    
+
+    if not self._isReadable() :
+      self._Close()
+
     if not self._isOpen() or reopen :
       if self.Exists() :
         try :
           self._file = open(self.getFilePath(), 'rt', self._package_size)
+          self._breadable = self._file.readable()
         except Exception as e :
           self._file = None
-          
+
           self._arr_err.append("File '{}': Open Read failed!".format(self.getFilePath()))
           self._arr_err.append("Message: {}".format(str(e)))
           self._err_code = 1
     else :
       brs = True
-    
+
     return brs
-  
+
+
   def Read(self):
     brs = False
-    
+
     if not self._isReadable() :
-      self._rOpen()
-      
+      self._rOpen(True)
+
     if self._isOpen() :
       spk = None
       brd = True
-    
+
+      #Reset the Content Buffer
+      self._scontent = None
+
       try :
         while brd :
           spk = self._file.read(self._package_size)
-          
+
           if spk != '' :
             self._arr_content.append(spk)
           else :
             brd = False
-            
+
+        #File was read without Exception
         brs = True
-        
+
       except Exception as e :
         self._arr_err.append("File '{}': Read failed!".format(self.getFilePath()))
         self._arr_err.append("Message: {}".format(str(e)))
         self._err_code = 1
-        
+
+        #Close the File because of an Error
         self._Close()
-        
+
       if not self._persistent :
         #Close the File in non persistent Mode
         self._Close()
-        
+
     return brs
-  
-  
+
+
+  def readChunk(self):
+    brs = False
+
+    if not self._isReadable() :
+      self._rOpen(True)
+
+    if self._isOpen() :
+      spk = None
+      brd = True
+
+      #Reset the Content Buffer
+      self._scontent = None
+
+      try :
+        spk = self._file.read(self._package_size)
+
+        if spk != '' :
+          self._arr_content.append(spk)
+        else :
+          brd = False
+
+        #File was read without Exception
+        brs = True
+
+      except Exception as e :
+        self._arr_err.append("File '{}': Read failed!".format(self.getFilePath()))
+        self._arr_err.append("Message: {}".format(str(e)))
+        self._err_code = 1
+
+        #Close the File because of an Error
+        self._Close()
+
+      if not brd and not self._persistent :
+        #Close the File in non persistent Mode
+        self._Close()
+
+    return brs
+
+
+  def readContent(self):
+    self.Read()
+
+    return self.getContent()
+
+  def readLine(self):
+    pass
+
+
   def _Close(self):
     if self._isOpen() :
       self._file.close()
       self._file = None
-      
-    self._readable = False
-    self._writeable = False
-    self._appendable = False
-  
-  
-  
+
+    self._icursor = -1
+    self._breadable = False
+    self._bwriteable = False
+    self._bappendable = False
+
+
+
   #-----------------------------------------------------------------------------------------
   #Consultation Methods
-  
-  
+
+
   def getFileDirectory(self):
     return self._arr_file_path[0]
-  
-  
+
+
   def getFileName(self):
     return self._arr_file_path[1]
-    
-  
-  def getFilePath(self):    
+
+
+  def getFilePath(self):
     if self._file_path is None :
       self._file_path = ''.join(self._arr_file_path)
-    
+
     return self._file_path
-  
-  
+
+
+  def getContent(self):
+    if self._content is None :
+      self._scontent = ''.join(self._arr_content)
+
+    return self._scontent
+
+
+  def getLine(self):
+    pass
+
+
   def Exists(self):
     brs = os.path.exists(self.getFilePath())
-    
-    if brs :
-      brs = os.path.isfile(self.getFilePath())
-        
+
     return brs
-  
-  
+
+
   def _isOpen(self):
     brs = False
-    
+
     if self._file is not None :
       try :
-        if self.file.fileno() != 0 :         
+        if self._file.fileno() > 0 :
           brs = True
         else :
           #It is not a valid File Object
-          self._file = None      
+          self._file = None
           self._readable = False
           self._writeable = False
-          self._appendable = False          
+          self._appendable = False
       except :
         #It is not a valid File Object
-        self._file = None      
+        self._file = None
         self._readable = False
         self._writeable = False
         self._appendable = False
-            
+
     return brs
-  
-  
+
+
   def _isReadable(self):
     brs = False
-    
-    if self._isOpen() and self._readable :
+
+    if self._isOpen() and self._breadable :
       brs = True
-      
+
     return brs
-  
-  
+
+
   def _isWriteable(self):
     brs = False
-    
-    if self._isOpen() and self._writeable :
+
+    if self._isOpen() and self._bwriteable :
       brs = True
-      
+
+    return brs
+
+
+  def _isAppendable(self):
+    brs = False
+
+    if self._isOpen() and self._bappendable :
+      brs = True
+
     return brs
