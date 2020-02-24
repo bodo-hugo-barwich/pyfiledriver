@@ -7,7 +7,8 @@ Errors.
 
 :author: Bodo Hugo Barwich
 '''
-from __builtin__ import int
+__docformat__ = "restructuredtext en"
+
 import os
 
 
