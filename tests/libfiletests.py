@@ -7,6 +7,7 @@ Tests to verify the FileDriver Class Functionality
 '''
 import sys
 import unittest
+import os
 
 sys.path.append("../libfile")
 
@@ -21,7 +22,10 @@ class TestFileDriver(unittest.TestCase):
 
 
   def setUp(self):
-    pass
+    print("{} - go ...".format(sys._getframe().f_code.co_name))
+    print("setUp - Test Directory: '{}'".format(os.getcwd()))
+    print("setUp - Test Module: '{}'\n".format(__file__))
+    print("")
 
 
   def tearDown(self):
@@ -29,7 +33,7 @@ class TestFileDriver(unittest.TestCase):
 
 
   def test_Constructor(self):
-    print("{} - go ...\n".format(sys._getframe().f_code.co_name))
+    print("{} - go ...".format(sys._getframe().f_code.co_name))
 
     fl = FileDriver(None, None, self._sfilename)
 
@@ -44,20 +48,53 @@ class TestFileDriver(unittest.TestCase):
     self.assertEqual(fl.getFileName()\
     , self._sfilename, "File Name is not set correctly.\n")
 
+    print("")
+
 
   def test_FileExists(self):
-    print("{} - go ...\n".format(sys._getframe().f_code.co_name))
+    print("{} - go ...".format(sys._getframe().f_code.co_name))
 
-    fl = FileDriver(None, None, self._sfilename)
+    #Get the Working Directory from the Module File Name
+    fl = FileDriver(__file__)
+
+    #Override the Module File Name with the actual Test File
+    fl.setFileName(self._sfilename)
 
     print("testFileExists - File Path: '{}'".format(fl.getFilePath()))
 
     self.assertEqual(fl.Exists()\
     , True, "Test File cannot be found.\n")
 
+    print("")
+
+
+  def test_FileRead(self):
+    print("{} - go ...".format(sys._getframe().f_code.co_name))
+
+    #Get the Working Directory from the Module File Name
+    fl = FileDriver(__file__)
+
+    #Override the Module File Name with the actual Test File
+    fl.setFileName(self._sfilename)
+
+    print("testFileExists - File Path: '{}'".format(fl.getFilePath()))
+
+    if fl.Exists() :
+      self.assertEqual(fl.Read()\
+      , True, "Test File cannot be found.\n")
+      self.assertFalse(fl.getContent() == '' \
+      , "Test File was not read correctly.\n")
+    else :
+      self.assertEqual(fl.Exists()\
+      , True, "Test File cannot be found.\n")
+
+    print("")
+
 
 
 if __name__ == "__main__":
+  print("test module: '{}'".format(__file__))
+
   print("tests starting ...\n")
   #import sys;sys.argv = ['', 'Test.testConstructor']
   unittest.main()

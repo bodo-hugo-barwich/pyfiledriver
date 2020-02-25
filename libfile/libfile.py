@@ -10,6 +10,7 @@ Errors.
 __docformat__ = "restructuredtext en"
 
 import os
+import io
 
 
 
@@ -72,6 +73,7 @@ class FileDriver(object):
 
 
   def setFileDirectory(self, filedirectory):
+    #Reset former cached File Path
     self._file_path = None
     self._arr_file_path[0] = ''
 
@@ -89,6 +91,7 @@ class FileDriver(object):
     if filename is None :
       filename = ''
 
+    #Reset former cached File Path
     self._file_path = None
     self._arr_file_path[1] = filename
 
@@ -108,7 +111,7 @@ class FileDriver(object):
 
       if slashpos != -1 :
         filedirectory = filepath[0 : slashpos]
-        filename = filepath[slashpos + 1 : filepath.length - 1]
+        filename = filepath[slashpos + 1 : len(filepath) - 1]
       else :
         filedirectory = ''
         filename = filepath
@@ -152,14 +155,75 @@ class FileDriver(object):
     if not self._isOpen() or reopen :
       if self.Exists() :
         try :
-          self._file = open(self.getFilePath(), 'rt', self._package_size)
+          self._file = io.FileIO(self.getFilePath(), 'r')
+
           self._breadable = self._file.readable()
+
+          #No Exception has occurred
+          brs = True
+
         except Exception as e :
           self._file = None
+
+          #Reset the internal File Status
+          self._Close()
 
           self._arr_err.append("File '{}': Open Read failed!".format(self.getFilePath()))
           self._arr_err.append("Message: {}".format(str(e)))
           self._err_code = 1
+
+    else :
+      brs = True
+
+    return brs
+
+
+  def _wOpen(self):
+    brs = False
+
+    if not self._isWriteable() :
+      self._Close()
+
+    if not self._isOpen() :
+      if self.Exists() :
+        try :
+          try :
+            self._file = io.FileIO(self.getFilePath(), 'w')
+          except FileExistsError as e :
+            #Ignore the File does already exists Exception
+            pass
+
+          self._bwriteable = self._file.writable()
+
+          #No Exception has occurred
+          brs = True
+
+        except Exception as e :
+          self._file = None
+
+          #Reset the internal File Status
+          self._Close()
+
+          self._arr_err.append("File '{}': Open Write failed!".format(self.getFilePath()))
+          self._arr_err.append("Message: {}".format(str(e)))
+          self._err_code = 1
+
+      else :
+        #A valid Directory is required
+        if self.DirectoryExists() :
+          try :
+            self._file = io.FileIO(self.getFilePath(), 'w')
+
+            self._bwriteable = self._file.writable()
+          except Exception as e :
+            self._file = None
+
+            #Reset the internal File Status
+            self._Close()
+
+            self._arr_err.append("File '{}': Open Write failed!".format(self.getFilePath()))
+            self._arr_err.append("Message: {}".format(str(e)))
+            self._err_code = 1
     else :
       brs = True
 
@@ -173,7 +237,7 @@ class FileDriver(object):
       self._rOpen(True)
 
     if self._isOpen() :
-      spk = None
+      scnk = None
       brd = True
 
       #Reset the Content Buffer
@@ -181,10 +245,10 @@ class FileDriver(object):
 
       try :
         while brd :
-          spk = self._file.read(self._package_size)
+          scnk = self._file.read(self._package_size)
 
-          if spk != '' :
-            self._arr_content.append(spk)
+          if scnk != '' :
+            self._arr_content.append(scnk)
           else :
             brd = False
 
@@ -213,17 +277,17 @@ class FileDriver(object):
       self._rOpen(True)
 
     if self._isOpen() :
-      spk = None
+      scnk = None
       brd = True
 
       #Reset the Content Buffer
       self._scontent = None
 
       try :
-        spk = self._file.read(self._package_size)
+        scnk = self._file.read(self._package_size)
 
-        if spk != '' :
-          self._arr_content.append(spk)
+        if scnk != '' :
+          self._arr_content.append(scnk)
         else :
           brd = False
 
@@ -249,6 +313,7 @@ class FileDriver(object):
     self.Read()
 
     return self.getContent()
+
 
   def readLine(self):
     pass
@@ -286,7 +351,7 @@ class FileDriver(object):
 
 
   def getContent(self):
-    if self._content is None :
+    if self._scontent is None :
       self._scontent = ''.join(self._arr_content)
 
     return self._scontent
@@ -296,8 +361,27 @@ class FileDriver(object):
     pass
 
 
+  def DirectoryExists(self):
+    brs = False
+
+    #An empty Directory is the current Working Directory
+    if self.getFileDirectory() != '' :
+      brs = os.path.exists(self.getFileDirectory())
+    else :
+      brs = True
+
+    return brs
+
+
   def Exists(self):
-    brs = os.path.exists(self.getFilePath())
+    #Check the Directory first
+    brs = self.DirectoryExists()
+
+    #File Name must be set
+    if brs and self.getFileName() != '' :
+      brs = os.path.exists(self.getFilePath())
+    else :
+      brs = False
 
     return brs
 
@@ -312,12 +396,14 @@ class FileDriver(object):
         else :
           #It is not a valid File Object
           self._file = None
+          self._icursor = -1
           self._readable = False
           self._writeable = False
           self._appendable = False
       except :
         #It is not a valid File Object
         self._file = None
+        self._icursor = -1
         self._readable = False
         self._writeable = False
         self._appendable = False
