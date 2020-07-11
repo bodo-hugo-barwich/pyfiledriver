@@ -3,7 +3,7 @@ This Module provides the `FileDriver` Class which handles the Access to a Single
 File implementing several functionalities in Python only Code and captures possible
 Errors.
 
-:version: 2018-10-27
+:version: 2020-07-11
 
 :author: Bodo Hugo Barwich
 '''
@@ -17,7 +17,9 @@ from io import SEEK_SET
 
 class FileDriver(object):
   '''
-  classdocs
+  This is a Class interact with a physical Text File in a easy and convenient way.
+
+  It offers Methods read and write from and to the File
   '''
 
 
