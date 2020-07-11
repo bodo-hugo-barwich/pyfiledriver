@@ -10,8 +10,9 @@ Errors.
 __docformat__ = "restructuredtext en"
 
 import os
-import io
-
+import sys
+from io import FileIO
+from io import SEEK_SET
 
 
 class FileDriver(object):
@@ -32,7 +33,7 @@ class FileDriver(object):
     self._arr_content = []
     self._arr_content_lines = []
     self._scontent = ''
-    self._package_size = 32768
+    self._package_size = 16 #32768
     self._icursor = -1
     self._persistent = False
     self._cached = False
@@ -41,9 +42,11 @@ class FileDriver(object):
     self._bwriteable = False
     self._bappendable = False
 
+    self._arr_rpt = []
     self._arr_err = []
+    self._sreport = None
+    self._serror = None
     self._err_code = 0
-
 
     if filepath is not None :
       self.setFilePath(filepath)
@@ -65,6 +68,9 @@ class FileDriver(object):
 
     self._arr_content = None
     self._arr_content_lines = None
+
+    self._arr_rpt = None
+    self._arr_err = None
 
 
 
@@ -146,6 +152,13 @@ class FileDriver(object):
       self._cached = cached
 
 
+  def setContent(self, scontent):
+    if scontent is None :
+      scontent = ''
+
+    self._scontent = scontent
+
+
   def _rOpen(self, reopen = False):
     brs = False
 
@@ -155,7 +168,12 @@ class FileDriver(object):
     if not self._isOpen() or reopen :
       if self.Exists() :
         try :
-          self._file = io.FileIO(self.getFilePath(), 'r')
+          self._file = FileIO(self.getFilePath(), 'r')
+
+          self._file._blksize = self._package_size
+
+          #Reset the File Cursor
+          self._file.seek(SEEK_SET)
 
           self._breadable = self._file.readable()
 
@@ -188,15 +206,16 @@ class FileDriver(object):
       if self.Exists() :
         try :
           try :
-            self._file = io.FileIO(self.getFilePath(), 'w')
+            self._file = FileIO(self.getFilePath(), 'w')
           except FileExistsError as e :
             #Ignore the File does already exists Exception
             pass
 
-          self._bwriteable = self._file.writable()
-
-          #No Exception has occurred
-          brs = True
+          if self._isOpen() :
+            self._file._blksize = self._package_size
+            self._bwriteable = self._file.writable()
+            #No Exception has occurred
+            brs = True
 
         except Exception as e :
           self._file = None
@@ -212,7 +231,9 @@ class FileDriver(object):
         #A valid Directory is required
         if self.DirectoryExists() :
           try :
-            self._file = io.FileIO(self.getFilePath(), 'w')
+            self._file = FileIO(self.getFilePath(), 'w')
+
+            self._file._blksize = self._package_size
 
             self._bwriteable = self._file.writable()
           except Exception as e :
@@ -233,6 +254,9 @@ class FileDriver(object):
   def Read(self):
     brs = False
 
+    #Clear previous Errors
+    self.clearErrors()
+
     if not self._isReadable() :
       self._rOpen(True)
 
@@ -247,13 +271,21 @@ class FileDriver(object):
         while brd :
           scnk = self._file.read(self._package_size)
 
-          if scnk != '' :
-            self._arr_content.append(scnk)
+          print("got chunk: '{}'".format(str(scnk, sys.stdout.encoding)))
+
+          if scnk is not None :
+            scnk = str(scnk, sys.stdout.encoding)
+
+            if scnk != '' :
+              self._arr_content.append(scnk)
+            else :
+              brd = False
           else :
             brd = False
 
-        #File was read without Exception
-        brs = True
+        if scnk is not None :
+          #File was read without Exception
+          brs = True
 
       except Exception as e :
         self._arr_err.append("File '{}': Read failed!".format(self.getFilePath()))
@@ -268,6 +300,75 @@ class FileDriver(object):
         self._Close()
 
     return brs
+
+
+  def Write(self):
+    brs = False
+
+    #Clear previous Errors
+    self.clearErrors()
+
+    if not self._isWriteable() :
+      self._wOpen()
+
+    if self._isOpen() :
+      #Build the Content String
+      arrcntnt = bytes(self.getContent(), sys.stdout.encoding)
+      icntntln = len(arrcntnt)
+      iwrtstrt = 0
+      iwrtend = self._package_size if icntntln > self._package_size else icntntln
+      iwrtcnt = -1
+      iwrtttlcnt = -1
+
+      bwrt = True
+
+      try :
+        while bwrt and iwrtttlcnt < icntntln :
+          iwrtcnt = self._file.write(arrcntnt[iwrtstrt : iwrtend])
+
+          if iwrtcnt is not None :
+            if iwrtttlcnt == -1 :
+              iwrtttlcnt = iwrtcnt
+            else :
+              iwrtttlcnt += iwrtcnt
+
+            if iwrtttlcnt < icntntln :
+              iwrtstrt = iwrtttlcnt
+              iwrtend = iwrtstrt
+
+            if iwrtend < icntntln :
+              iwrtend = iwrtend + self._package_size if icntntln - iwrtend > self._package_size else icntntln
+            else :
+              bwrt = False
+
+          else :
+            bwrt = False
+
+        if iwrtttlcnt != icntntln :
+          self._arr_err.append("File '{}': Write failed!".format(self.getFilePath()))
+          self._arr_err.append("Message: Written Only ({} / {}) Bytes.".format([iwrtcnt, icntntln]))
+          self._err_code = 1
+
+          #Close the File because of an Error
+          self._Close()
+
+        else :  #Content was written correctly
+          brs = True
+
+      except Exception as e :
+        self._arr_err.append("File '{}': Write failed!".format(self.getFilePath()))
+        self._arr_err.append("Message: {}".format(str(e)))
+        self._err_code = 1
+
+        #Close the File because of an Error
+        self._Close()
+
+      if not self._persistent :
+        #Close the File in non persistent Mode
+        self._Close()
+
+    return brs
+
 
 
   def readChunk(self):
@@ -315,8 +416,22 @@ class FileDriver(object):
     return self.getContent()
 
 
+  def writeContent(self, scontent):
+    self.setContent(scontent)
+
+    return self.Write()
+
+
   def readLine(self):
     pass
+
+
+  def clearErrors(self):
+    self._arr_rpt = []
+    self._arr_err = []
+    self._sreport = None
+    self._serror = None
+    self._err_code = 0
 
 
   def _Close(self):
@@ -384,6 +499,24 @@ class FileDriver(object):
       brs = False
 
     return brs
+
+
+  def getReportString(self):
+    if self._sreport is None :
+      self._sreport = "\n".join(self._arr_rpt)
+
+    return self._sreport
+
+
+  def getErrorString(self):
+    if self._serror is None :
+      self._serror = "\n".join(self._arr_err)
+
+    return self._serror
+
+
+  def getErrorCode(self):
+    return self._err_code
 
 
   def _isOpen(self):
