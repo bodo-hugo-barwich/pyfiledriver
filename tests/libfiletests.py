@@ -9,7 +9,8 @@ import sys
 import unittest
 import os
 
-sys.path.append("../libfile")
+sys.path.append("./")
+sys.path.append("../")
 
 from libfile import FileDriver
 

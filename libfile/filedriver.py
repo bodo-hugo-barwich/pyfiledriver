@@ -17,15 +17,19 @@ from io import SEEK_SET
 
 class FileDriver(object):
   '''
-  This is a Class interact with a physical Text File in a easy and convenient way.
+  This is a Class to interact with a physical Text File in a easy and convenient way.
 
   It offers Methods read and write from and to the File
   '''
 
 
+  #----------------------------------------------------------------------------
+  #Constructors
+
+
   def __init__(self, filepath = None, filedirectory = None, filename = None):
     '''
-    A `FileDriver` Object can be instanciate with a complete `filepath` or with
+    A `FileDriver` Object can be instantiated with a complete `filepath` or with
     `filedirectory` and / or `filename`
     '''
     self._arr_file_path = ['', '']
@@ -81,6 +85,13 @@ class FileDriver(object):
 
 
   def setFileDirectory(self, filedirectory):
+    '''
+    This Method sets the directory of the file.
+    If the directory does not end with a slash "/" it will be added
+
+    :param filedirectory: The Directory of the File
+    :type filedirectory: string
+    '''
     #Reset former cached File Path
     self._file_path = None
     self._arr_file_path[0] = ''
@@ -133,6 +144,14 @@ class FileDriver(object):
 
 
   def setPersistent(self, persistent = True):
+    '''
+    This Method enables the Persistence feature.
+    With the Persistence feature the File will not be closed after each Read action.
+    This enables the File to be read in Chunks
+
+    :param persistent: Whether the Persistence feature to be enabled
+    :type persistent: boolean
+    '''
     if isinstance(persistent, int) :
       if persistent > 0 :
         persistent = True
@@ -571,3 +590,4 @@ class FileDriver(object):
       brs = True
 
     return brs
+
