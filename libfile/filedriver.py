@@ -39,7 +39,7 @@ class FileDriver(object):
     self._arr_content = []
     self._arr_content_lines = []
     self._scontent = ''
-    self._package_size = 16 #32768
+    self._package_size = 32768 # 16 #
     self._icursor = -1
     self._persistent = False
     self._cached = False
